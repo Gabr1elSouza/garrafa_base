@@ -30,14 +30,6 @@ export const GALAO = {
   tampa: { raio: 0.16, altura: 0.08, centroY: -0.04 },
 };
 
-/** Oleo de motor usado. Escurecer ou clarear se mexe so aqui. */
-export const COR_OLEO = "#3a2410";
-/**
- * Emissiva baixa de proposito: nao e para clarear a cor, e para a gota nao
- * virar silhueta chapada e sumir contra o fundo escuro.
- */
-export const COR_OLEO_EMISSIVA = "#140b03";
-
 const BISEL = 0.04;
 
 /** Retangulo de cantos arredondados, centrado na origem do plano XY. */

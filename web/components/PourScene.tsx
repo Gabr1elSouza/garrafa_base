@@ -14,14 +14,9 @@ import {
   posicaoOscilador,
   type Gota,
 } from "@/lib/game/pour";
-import {
-  COR_OLEO,
-  COR_OLEO_EMISSIVA,
-  criarAlca,
-  criarCorpo,
-  criarGargalo,
-  criarTampa,
-} from "./galao";
+import { criarAlca, criarCorpo, criarGargalo, criarTampa } from "./galao";
+import { Lata } from "./Lata";
+import { sortearLata, TEMA_PADRAO, type Recipiente } from "@/lib/temas";
 
 /** Teto de gotas vivas. Acima disso o jato satura em vez de engasgar a cena. */
 const MAX_GOTAS = 260;
@@ -65,6 +60,9 @@ type Props = {
    * que estiver atras do canvas, mantendo so a sombra projetada.
    */
   ambiente?: "estudio" | "aberto";
+  /** Sem tema explicito vale o padrao — e a rota `/` segue o padrao de graca. */
+  recipiente?: Recipiente;
+  liquido?: { cor: string; emissiva: string };
 };
 
 export function Cena({
@@ -73,12 +71,21 @@ export function Cena({
   round,
   onProgress,
   ambiente = "estudio",
+  recipiente = TEMA_PADRAO.recipiente,
+  // Renomeado na desestruturacao: `liquido` ja e o ref do mesh do liquido
+  // acumulado, logo abaixo.
+  liquido: corDoLiquido = TEMA_PADRAO.liquido,
 }: Props) {
   const geoCorpo = useMemo(() => criarCorpo(), []);
   const geoAlca = useMemo(() => criarAlca(), []);
   const geoGargalo = useMemo(() => criarGargalo(), []);
   const geoTampa = useMemo(() => criarTampa(), []);
   const geoAlvo = useGeometriaAlvo();
+
+  // Uma lata por partida: `round` muda a cada rodada nova, entao o sorteio
+  // acompanha sem precisar de estado proprio.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lata = useMemo(() => sortearLata(recipiente), [recipiente, round]);
   const geoGota = useMemo(
     () => new THREE.SphereGeometry(RAIO_GOTA, 8, 6),
     [],
@@ -204,23 +211,34 @@ export function Cena({
       />
       <pointLight position={[-5, 3, 4]} intensity={22} color="#7dd3fc" />
 
-      {/* Galao de cima: o grupo fica na altura do bico e gira em torno dele.
-          Nenhuma peca leva `position` — elas ja saem posicionadas de galao.ts. */}
+      {/* Recipiente de cima: o grupo fica na altura do bico e gira em torno
+          dele. Nenhuma peca leva `position` — todas saem posicionadas com a
+          boca na origem. */}
       <group ref={garrafa} position={[0, ALTURA_BOCAL, 0]}>
-        <mesh geometry={geoCorpo} castShadow>
-          <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
-        </mesh>
-        <mesh geometry={geoAlca} castShadow>
-          <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
-        </mesh>
-        <mesh geometry={geoGargalo} castShadow>
-          <meshStandardMaterial color="#c9ccc6" roughness={0.6} />
-        </mesh>
-        {/* A tampa vermelha marca onde e o bico, que num galao fica no canto e
-            nao no centro. Sem ela a peca fica ambigua de longe. */}
-        <mesh geometry={geoTampa} castShadow>
-          <meshStandardMaterial color="#b03a2e" roughness={0.45} />
-        </mesh>
+        {recipiente.tipo === "sprite" && lata ? (
+          <Lata
+            imagem={lata}
+            largura={recipiente.largura}
+            altura={recipiente.altura}
+          />
+        ) : (
+          <>
+            <mesh geometry={geoCorpo} castShadow>
+              <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
+            </mesh>
+            <mesh geometry={geoAlca} castShadow>
+              <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
+            </mesh>
+            <mesh geometry={geoGargalo} castShadow>
+              <meshStandardMaterial color="#c9ccc6" roughness={0.6} />
+            </mesh>
+            {/* A tampa vermelha marca onde e o bico, que num galao fica no
+                canto e nao no centro. */}
+            <mesh geometry={geoTampa} castShadow>
+              <meshStandardMaterial color="#b03a2e" roughness={0.45} />
+            </mesh>
+          </>
+        )}
       </group>
 
       {/* Jarra alvo, parada no centro. */}
@@ -242,9 +260,9 @@ export function Cena({
       <mesh ref={liquido} position={[0, 0.08, 0]}>
         <cylinderGeometry args={[RAIO_LIQUIDO, RAIO_LIQUIDO, 1, 32]} />
         <meshStandardMaterial
-          color={COR_OLEO}
+          color={corDoLiquido.cor}
           roughness={0.25}
-          emissive={COR_OLEO_EMISSIVA}
+          emissive={corDoLiquido.emissiva}
           emissiveIntensity={0.35}
         />
       </mesh>
@@ -255,9 +273,9 @@ export function Cena({
         frustumCulled={false}
       >
         <meshStandardMaterial
-          color={COR_OLEO}
+          color={corDoLiquido.cor}
           roughness={0.2}
-          emissive={COR_OLEO_EMISSIVA}
+          emissive={corDoLiquido.emissiva}
           emissiveIntensity={0.3}
         />
       </instancedMesh>
