@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { ARTE } from "@/lib/totem/arte";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
 
 export default function Totem() {
   const escala = usePalco();
+  const [semArte, setSemArte] = useState(false);
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-black">
@@ -15,7 +18,19 @@ export default function Totem() {
           transform: `translate(-50%, -50%) scale(${escala})`,
         }}
       >
-        <div className="absolute inset-8 rounded-3xl border-4 border-dashed border-white/20" />
+        {!semArte && (
+          // Arte de tamanho fixo conhecido, ocupando o palco inteiro: nao se
+          // beneficia do srcset do next/image.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={ARTE.imagem}
+            alt=""
+            width={PALCO_L}
+            height={PALCO_A}
+            className="absolute inset-0 h-full w-full select-none"
+            onError={() => setSemArte(true)}
+          />
+        )}
       </div>
     </main>
   );
