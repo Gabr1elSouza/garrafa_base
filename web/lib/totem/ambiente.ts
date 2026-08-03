@@ -43,3 +43,21 @@ export const modoCalibracao = {
     return false;
   },
 };
+
+/**
+ * Nome do tema pedido na URL, ou `null`.
+ *
+ * Store externa pelo mesmo motivo dos vizinhos: ler `window` num efeito e
+ * chamar `setState` cai na regra `react-hooks/set-state-in-effect`.
+ */
+export const temaDaUrl = {
+  subscribe(): () => void {
+    return () => {};
+  },
+  getSnapshot(): string | null {
+    return new URLSearchParams(window.location.search).get("tema");
+  },
+  getServerSnapshot(): string | null {
+    return null;
+  },
+};

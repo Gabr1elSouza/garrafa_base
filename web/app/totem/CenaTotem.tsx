@@ -2,12 +2,14 @@
 
 import { Canvas } from "@react-three/fiber";
 import { Cena } from "@/components/PourScene";
+import type { Tema } from "@/lib/temas";
 
 type Props = {
   tilt: number;
   running: boolean;
   round: number;
   onProgress: (acertos: number, perdidas: number) => void;
+  tema: Tema;
 };
 
 /**
@@ -31,7 +33,15 @@ export function CenaTotem(props: Props) {
         gl.setClearAlpha(0);
       }}
     >
-      <Cena {...props} ambiente="aberto" />
+      <Cena
+        tilt={props.tilt}
+        running={props.running}
+        round={props.round}
+        onProgress={props.onProgress}
+        ambiente="aberto"
+        recipiente={props.tema.recipiente}
+        liquido={props.tema.liquido}
+      />
     </Canvas>
   );
 }

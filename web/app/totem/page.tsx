@@ -12,8 +12,8 @@ import { CenaTotem } from "./CenaTotem";
 import { Hud } from "./Hud";
 import { Operador } from "./Operador";
 import { nivelDeEnchimento } from "@/lib/game/pour";
-import { modoCalibracao } from "@/lib/totem/ambiente";
-import { ARTE } from "@/lib/totem/arte";
+import { resolverTema } from "@/lib/temas";
+import { modoCalibracao, temaDaUrl } from "@/lib/totem/ambiente";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
 import { BleSpinSource, ConnectionCancelled } from "@/lib/spin-source/ble";
 import { MockSpinSource } from "@/lib/spin-source/mock";
@@ -42,6 +42,12 @@ export default function Totem() {
     modoCalibracao.getSnapshot,
     modoCalibracao.getServerSnapshot,
   );
+  const nomeDoTema = useSyncExternalStore(
+    temaDaUrl.subscribe,
+    temaDaUrl.getSnapshot,
+    temaDaUrl.getServerSnapshot,
+  );
+  const tema = resolverTema(nomeDoTema);
   const [state, setState] = useState<SpinState>(INITIAL_STATE);
 
   const [fase, setFase] = useState<Fase>("pronto");
@@ -172,7 +178,7 @@ export default function Totem() {
           // beneficia do srcset do next/image.
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={ARTE.imagem}
+            src={tema.fundo}
             alt=""
             width={PALCO_L}
             height={PALCO_A}
@@ -186,6 +192,7 @@ export default function Totem() {
           running={connected && fase !== "venceu"}
           round={round}
           onProgress={onProgress}
+          tema={tema}
         />
 
         <Hud
