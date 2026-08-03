@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CenaTotem } from "./CenaTotem";
 import { Hud } from "./Hud";
+import { Operador } from "./Operador";
 import { nivelDeEnchimento } from "@/lib/game/pour";
 import { ARTE } from "@/lib/totem/arte";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
+import { BleSpinSource, ConnectionCancelled } from "@/lib/spin-source/ble";
 import { MockSpinSource } from "@/lib/spin-source/mock";
 import {
   INITIAL_STATE,
@@ -24,6 +26,9 @@ export default function Totem() {
 
   const [source, setSource] = useState<SpinSource | null>(null);
   const [connected, setConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [painelAberto, setPainelAberto] = useState(true);
   const [state, setState] = useState<SpinState>(INITIAL_STATE);
 
   const [fase, setFase] = useState<Fase>("pronto");
@@ -38,7 +43,12 @@ export default function Totem() {
     const unsubState = source.subscribe(setState);
     const unsubConn = source.subscribeConnection((isConnected) => {
       setConnected(isConnected);
-      if (!isConnected) setState(INITIAL_STATE);
+      if (!isConnected) {
+        setState(INITIAL_STATE);
+        setErro("A garrafa desconectou.");
+        // O aviso cabe no painel, nunca sobre o jogo.
+        setPainelAberto(true);
+      }
     });
     return () => {
       unsubState();
@@ -87,12 +97,30 @@ export default function Totem() {
     }
   }, []);
 
-  // Provisorio: some na Task 5, quando o painel de operador entra.
-  const usarSimulador = useCallback(async () => {
-    const mock = new MockSpinSource();
-    await mock.connect();
-    setSource(mock);
+  const iniciar = useCallback(async (nova: SpinSource) => {
+    setErro(null);
+    setConnecting(true);
+    try {
+      await nova.connect();
+      setSource(nova);
+      // Fecha aqui, e nao num efeito que observa `connected`: conectou com
+      // sucesso e a causa direta de a tela ficar limpa para o publico.
+      setPainelAberto(false);
+    } catch (e) {
+      // Fechar o seletor de dispositivos e uma decisao, nao um problema.
+      if (e instanceof ConnectionCancelled) return;
+      setErro(e instanceof Error ? e.message : "Falha ao conectar.");
+    } finally {
+      setConnecting(false);
+    }
   }, []);
+
+  const desconectar = useCallback(async () => {
+    await source?.disconnect();
+    setSource(null);
+    setConnected(false);
+    setState(INITIAL_STATE);
+  }, [source]);
 
   const mock = source instanceof MockSpinSource ? source : null;
 
@@ -153,15 +181,25 @@ export default function Totem() {
           venceu={fase === "venceu"}
         />
 
-        {!connected && (
-          <button
-            type="button"
-            onClick={usarSimulador}
-            className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-2xl bg-white/10 px-10 py-6 text-3xl font-bold text-white"
-          >
-            Usar simulador
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label="Abrir painel do operador"
+          onClick={() => setPainelAberto(true)}
+          className="absolute right-0 top-0 z-10 h-40 w-40 cursor-default opacity-0"
+        />
+
+        <Operador
+          aberto={painelAberto}
+          source={source}
+          connected={connected}
+          connecting={connecting}
+          erro={erro}
+          aoConectar={() => iniciar(new BleSpinSource())}
+          aoSimular={() => iniciar(new MockSpinSource())}
+          aoDesconectar={desconectar}
+          aoZerar={() => source?.send("level")}
+          aoFechar={() => setPainelAberto(false)}
+        />
       </div>
     </main>
   );
