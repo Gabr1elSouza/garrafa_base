@@ -1,0 +1,8 @@
+# O .gitignore do `web/` usa `/node_modules`, e a barra inicial ancora na pasta
+# dele. Ferramentas que rodam a partir da raiz — o vitest, por exemplo — criam
+# cache aqui, e sem esta linha ele vai parar no repositorio.
+node_modules/
+
+# Lixo de sistema
+.DS_Store
+Thumbs.db
