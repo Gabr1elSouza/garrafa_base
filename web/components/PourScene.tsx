@@ -14,6 +14,14 @@ import {
   posicaoOscilador,
   type Gota,
 } from "@/lib/game/pour";
+import {
+  COR_OLEO,
+  COR_OLEO_EMISSIVA,
+  criarAlca,
+  criarCorpo,
+  criarGargalo,
+  criarTampa,
+} from "./galao";
 
 /** Teto de gotas vivas. Acima disso o jato satura em vez de engasgar a cena. */
 const MAX_GOTAS = 260;
@@ -24,31 +32,6 @@ const TILT_VISUAL_MAXIMO = 110;
 /** Corpo da jarra, e por consequencia a largura do liquido dentro dela. */
 const RAIO_CORPO_JARRA = ALVO_RAIO + 0.16;
 const RAIO_LIQUIDO = RAIO_CORPO_JARRA - 0.05;
-
-/** Garrafa de despejar: bico na origem, corpo para baixo. */
-function useGeometriaGarrafa() {
-  return useMemo(() => {
-    const perfil = [
-      [0.0, 0.0],
-      [0.34, 0.0],
-      [0.36, 0.07],
-      [0.36, 0.9],
-      [0.35, 1.05],
-      [0.24, 1.38],
-      [0.14, 1.56],
-      [0.132, 1.86],
-      [0.155, 1.93],
-      [0.155, 2.0],
-      [0.0, 2.0],
-    ].map(([x, y]) => new THREE.Vector2(x, y));
-
-    const g = new THREE.LatheGeometry(perfil, 40);
-    // Bico na origem para que o giro aconteca em torno da boca, como acontece
-    // ao virar uma garrafa de verdade.
-    g.translate(0, -2.0, 0);
-    return g;
-  }, []);
-}
 
 /** Alvo: jarra de boca larga, para que o raio de acerto seja crivel. */
 function useGeometriaAlvo() {
@@ -91,7 +74,10 @@ export function Cena({
   onProgress,
   ambiente = "estudio",
 }: Props) {
-  const geoGarrafa = useGeometriaGarrafa();
+  const geoCorpo = useMemo(() => criarCorpo(), []);
+  const geoAlca = useMemo(() => criarAlca(), []);
+  const geoGargalo = useMemo(() => criarGargalo(), []);
+  const geoTampa = useMemo(() => criarTampa(), []);
   const geoAlvo = useGeometriaAlvo();
   const geoGota = useMemo(
     () => new THREE.SphereGeometry(RAIO_GOTA, 8, 6),
@@ -112,11 +98,14 @@ export function Cena({
 
   useEffect(
     () => () => {
-      geoGarrafa.dispose();
+      geoCorpo.dispose();
+      geoAlca.dispose();
+      geoGargalo.dispose();
+      geoTampa.dispose();
       geoAlvo.dispose();
       geoGota.dispose();
     },
-    [geoGarrafa, geoAlvo, geoGota],
+    [geoCorpo, geoAlca, geoGargalo, geoTampa, geoAlvo, geoGota],
   );
 
   // Partida nova zera tudo.
@@ -215,17 +204,22 @@ export function Cena({
       />
       <pointLight position={[-5, 3, 4]} intensity={22} color="#7dd3fc" />
 
-      {/* Garrafa de cima: o grupo fica na altura do bico e gira em torno dele. */}
+      {/* Galao de cima: o grupo fica na altura do bico e gira em torno dele.
+          Nenhuma peca leva `position` — elas ja saem posicionadas de galao.ts. */}
       <group ref={garrafa} position={[0, ALTURA_BOCAL, 0]}>
-        <mesh geometry={geoGarrafa} castShadow>
-          <meshPhysicalMaterial
-            color="#2f6b3a"
-            roughness={0.12}
-            clearcoat={1}
-            clearcoatRoughness={0.05}
-            transparent
-            opacity={0.9}
-          />
+        <mesh geometry={geoCorpo} castShadow>
+          <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
+        </mesh>
+        <mesh geometry={geoAlca} castShadow>
+          <meshStandardMaterial color="#d7d9d4" roughness={0.55} />
+        </mesh>
+        <mesh geometry={geoGargalo} castShadow>
+          <meshStandardMaterial color="#c9ccc6" roughness={0.6} />
+        </mesh>
+        {/* A tampa vermelha marca onde e o bico, que num galao fica no canto e
+            nao no centro. Sem ela a peca fica ambigua de longe. */}
+        <mesh geometry={geoTampa} castShadow>
+          <meshStandardMaterial color="#b03a2e" roughness={0.45} />
         </mesh>
       </group>
 
@@ -248,9 +242,9 @@ export function Cena({
       <mesh ref={liquido} position={[0, 0.08, 0]}>
         <cylinderGeometry args={[RAIO_LIQUIDO, RAIO_LIQUIDO, 1, 32]} />
         <meshStandardMaterial
-          color="#e8a33a"
+          color={COR_OLEO}
           roughness={0.25}
-          emissive="#7a4d05"
+          emissive={COR_OLEO_EMISSIVA}
           emissiveIntensity={0.35}
         />
       </mesh>
@@ -261,9 +255,9 @@ export function Cena({
         frustumCulled={false}
       >
         <meshStandardMaterial
-          color="#f0b429"
+          color={COR_OLEO}
           roughness={0.2}
-          emissive="#8a5a08"
+          emissive={COR_OLEO_EMISSIVA}
           emissiveIntensity={0.3}
         />
       </instancedMesh>
