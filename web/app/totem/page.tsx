@@ -1,13 +1,120 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CenaTotem } from "./CenaTotem";
+import { Hud } from "./Hud";
+import { nivelDeEnchimento } from "@/lib/game/pour";
 import { ARTE } from "@/lib/totem/arte";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
+import { MockSpinSource } from "@/lib/spin-source/mock";
+import {
+  INITIAL_STATE,
+  type SpinSource,
+  type SpinState,
+} from "@/lib/spin-source/types";
+
+type Fase = "pronto" | "jogando" | "venceu";
+
+/** Quanto a tela de vitoria fica no ar antes de a proxima partida comecar. */
+const TEMPO_DE_VITORIA = 8000;
 
 export default function Totem() {
   const escala = usePalco();
   const [semArte, setSemArte] = useState(false);
+
+  const [source, setSource] = useState<SpinSource | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [state, setState] = useState<SpinState>(INITIAL_STATE);
+
+  const [fase, setFase] = useState<Fase>("pronto");
+  const [acertos, setAcertos] = useState(0);
+  const [tempo, setTempo] = useState(0);
+  const [round, setRound] = useState(0);
+  const inicio = useRef(0);
+  const faseRef = useRef<Fase>("pronto");
+
+  useEffect(() => {
+    if (!source) return;
+    const unsubState = source.subscribe(setState);
+    const unsubConn = source.subscribeConnection((isConnected) => {
+      setConnected(isConnected);
+      if (!isConnected) setState(INITIAL_STATE);
+    });
+    return () => {
+      unsubState();
+      unsubConn();
+    };
+  }, [source]);
+
+  useEffect(() => {
+    if (fase !== "jogando") return;
+    const id = setInterval(
+      () => setTempo((performance.now() - inicio.current) / 1000),
+      50,
+    );
+    return () => clearInterval(id);
+  }, [fase]);
+
+  const reiniciar = useCallback(() => {
+    faseRef.current = "pronto";
+    setRound((r) => r + 1);
+    setAcertos(0);
+    setTempo(0);
+    setFase("pronto");
+  }, []);
+
+  // Num totem publico ninguem aperta "recomecar": a fila anda sozinha.
+  useEffect(() => {
+    if (fase !== "venceu") return;
+    const id = setTimeout(reiniciar, TEMPO_DE_VITORIA);
+    return () => clearTimeout(id);
+  }, [fase, reiniciar]);
+
+  // As viradas de fase sao reacao ao que a cena reporta, nao sincronizacao de
+  // estado. O ref espelha a fase para este callback nao precisar ser recriado.
+  const onProgress = useCallback((a: number, p: number) => {
+    setAcertos(a);
+
+    if (faseRef.current === "pronto" && a + p > 0) {
+      // A partida comeca na primeira gota, nao num botao: o cronometro mede so
+      // tempo de jogo.
+      faseRef.current = "jogando";
+      inicio.current = performance.now();
+      setFase("jogando");
+    } else if (faseRef.current === "jogando" && nivelDeEnchimento(a) >= 1) {
+      faseRef.current = "venceu";
+      setFase("venceu");
+    }
+  }, []);
+
+  // Provisorio: some na Task 5, quando o painel de operador entra.
+  const usarSimulador = useCallback(async () => {
+    const mock = new MockSpinSource();
+    await mock.connect();
+    setSource(mock);
+  }, []);
+
+  const mock = source instanceof MockSpinSource ? source : null;
+
+  useEffect(() => {
+    if (!mock) return;
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      e.preventDefault();
+      mock.setPouring(true);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      mock.setPouring(false);
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, [mock]);
 
   return (
     <main className="fixed inset-0 overflow-hidden bg-black">
@@ -33,7 +140,28 @@ export default function Totem() {
           />
         )}
 
-        <CenaTotem tilt={0} running={false} round={0} onProgress={() => {}} />
+        <CenaTotem
+          tilt={state.tilt}
+          running={connected && fase !== "venceu"}
+          round={round}
+          onProgress={onProgress}
+        />
+
+        <Hud
+          nivel={nivelDeEnchimento(acertos)}
+          tempo={tempo}
+          venceu={fase === "venceu"}
+        />
+
+        {!connected && (
+          <button
+            type="button"
+            onClick={usarSimulador}
+            className="absolute bottom-16 left-1/2 -translate-x-1/2 rounded-2xl bg-white/10 px-10 py-6 text-3xl font-bold text-white"
+          >
+            Usar simulador
+          </button>
+        )}
       </div>
     </main>
   );
