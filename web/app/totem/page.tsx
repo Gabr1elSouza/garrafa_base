@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CenaTotem } from "./CenaTotem";
 import { ARTE } from "@/lib/totem/arte";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
 
@@ -31,6 +32,8 @@ export default function Totem() {
             onError={() => setSemArte(true)}
           />
         )}
+
+        <CenaTotem tilt={0} running={false} round={0} onProgress={() => {}} />
       </div>
     </main>
   );

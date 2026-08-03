@@ -77,9 +77,20 @@ type Props = {
   /** Muda para pedir uma partida nova. */
   round: number;
   onProgress: (acertos: number, perdidas: number) => void;
+  /**
+   * `estudio` fecha a cena com chao opaco e neblina. `aberto` deixa passar o
+   * que estiver atras do canvas, mantendo so a sombra projetada.
+   */
+  ambiente?: "estudio" | "aberto";
 };
 
-function Cena({ tilt, running, round, onProgress }: Props) {
+export function Cena({
+  tilt,
+  running,
+  round,
+  onProgress,
+  ambiente = "estudio",
+}: Props) {
   const geoGarrafa = useGeometriaGarrafa();
   const geoAlvo = useGeometriaAlvo();
   const geoGota = useMemo(
@@ -189,8 +200,11 @@ function Cena({ tilt, running, round, onProgress }: Props) {
   return (
     <>
       {/* Dissolve a borda distante do chao no fundo da pagina, senao o piso
-          termina numa linha reta que denuncia o plano. */}
-      <fog attach="fog" args={["#09090b", 11, 26]} />
+          termina numa linha reta que denuncia o plano. No totem a arte e o
+          fundo, e a neblina a taparia. */}
+      {ambiente === "estudio" && (
+        <fog attach="fog" args={["#09090b", 11, 26]} />
+      )}
 
       <ambientLight intensity={0.6} />
       <directionalLight
@@ -258,7 +272,12 @@ function Cena({ tilt, running, round, onProgress }: Props) {
           que as bordas fiquem fora de vista e nao parecam uma laje solta. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[80, 60]} />
-        <meshStandardMaterial color="#131319" roughness={1} />
+        {ambiente === "estudio" ? (
+          <meshStandardMaterial color="#131319" roughness={1} />
+        ) : (
+          // So a sombra sobrevive: e ela que ancora as garrafas no cenario.
+          <shadowMaterial opacity={0.35} />
+        )}
       </mesh>
     </>
   );
