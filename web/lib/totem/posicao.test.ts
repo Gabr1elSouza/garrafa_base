@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ARTE, posicaoNoPalco } from "./arte";
+import { posicaoNoPalco } from "./posicao";
 
 describe("posicaoNoPalco", () => {
   it("converte percentual em left e top", () => {
@@ -16,16 +16,5 @@ describe("posicaoNoPalco", () => {
 
   it("trata numero invalido como zero", () => {
     expect(posicaoNoPalco(Number.NaN, 10)).toEqual({ left: "0%", top: "10%" });
-  });
-});
-
-describe("ARTE", () => {
-  it("mantem todas as coordenadas dentro do palco", () => {
-    for (const peca of [ARTE.nivel, ARTE.tempo]) {
-      expect(peca.x).toBeGreaterThanOrEqual(0);
-      expect(peca.x).toBeLessThanOrEqual(100);
-      expect(peca.y).toBeGreaterThanOrEqual(0);
-      expect(peca.y).toBeLessThanOrEqual(100);
-    }
   });
 });

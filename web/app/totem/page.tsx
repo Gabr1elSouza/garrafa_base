@@ -196,6 +196,8 @@ export default function Totem() {
         />
 
         <Hud
+          tema={tema}
+          acertos={acertos}
           nivel={nivelDeEnchimento(acertos)}
           tempo={tempo}
           venceu={fase === "venceu"}
@@ -221,7 +223,7 @@ export default function Totem() {
           aoFechar={() => setPainelAberto(false)}
         />
 
-        {calibrando && <Calibrador />}
+        {calibrando && <Calibrador tema={tema} />}
       </div>
     </main>
   );
