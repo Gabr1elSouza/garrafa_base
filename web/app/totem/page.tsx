@@ -1,10 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { Calibrador } from "./Calibrador";
 import { CenaTotem } from "./CenaTotem";
 import { Hud } from "./Hud";
 import { Operador } from "./Operador";
 import { nivelDeEnchimento } from "@/lib/game/pour";
+import { modoCalibracao } from "@/lib/totem/ambiente";
 import { ARTE } from "@/lib/totem/arte";
 import { PALCO_A, PALCO_L, usePalco } from "@/lib/totem/palco";
 import { BleSpinSource, ConnectionCancelled } from "@/lib/spin-source/ble";
@@ -29,6 +37,11 @@ export default function Totem() {
   const [connecting, setConnecting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [painelAberto, setPainelAberto] = useState(true);
+  const calibrando = useSyncExternalStore(
+    modoCalibracao.subscribe,
+    modoCalibracao.getSnapshot,
+    modoCalibracao.getServerSnapshot,
+  );
   const [state, setState] = useState<SpinState>(INITIAL_STATE);
 
   const [fase, setFase] = useState<Fase>("pronto");
@@ -189,7 +202,7 @@ export default function Totem() {
         />
 
         <Operador
-          aberto={painelAberto}
+          aberto={painelAberto && !calibrando}
           source={source}
           connected={connected}
           connecting={connecting}
@@ -200,6 +213,8 @@ export default function Totem() {
           aoZerar={() => source?.send("level")}
           aoFechar={() => setPainelAberto(false)}
         />
+
+        {calibrando && <Calibrador />}
       </div>
     </main>
   );

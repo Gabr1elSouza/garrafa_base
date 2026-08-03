@@ -22,3 +22,24 @@ export const contextoSeguro = {
     return true;
   },
 };
+
+/**
+ * Se a pagina foi aberta com `?calibrar`.
+ *
+ * Lido do `window` e nao de `searchParams` por dois motivos: no Next 16
+ * `searchParams` e assincrono, e usa-lo obrigaria a embrulhar a pagina inteira
+ * num `<Suspense>` so por causa de um modo de manutencao.
+ *
+ * O servidor responde `false` — o modo so existe depois de o browser montar.
+ */
+export const modoCalibracao = {
+  subscribe(): () => void {
+    return () => {};
+  },
+  getSnapshot(): boolean {
+    return new URLSearchParams(window.location.search).has("calibrar");
+  },
+  getServerSnapshot(): boolean {
+    return false;
+  },
+};
