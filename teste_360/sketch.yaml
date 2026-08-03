@@ -1,0 +1,2 @@
+default_fqbn: esp32:esp32:esp32c3:CDCOnBoot=cdc,PartitionScheme=default,FlashSize=4M,FlashMode=qio,FlashFreq=80,UploadSpeed=921600
+default_port: /dev/cu.usbmodem101
