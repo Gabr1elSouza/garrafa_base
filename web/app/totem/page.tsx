@@ -10,6 +10,7 @@ import {
 import { Calibrador } from "./Calibrador";
 import { CenaTotem } from "./CenaTotem";
 import { Hud } from "./Hud";
+import { LiquidoNaArte } from "./LiquidoNaArte";
 import { Operador } from "./Operador";
 import { nivelDeEnchimento } from "@/lib/game/pour";
 import { resolverTema } from "@/lib/temas";
@@ -173,6 +174,20 @@ export default function Totem() {
           transform: `translate(-50%, -50%) scale(${escala})`,
         }}
       >
+        {/* Ordem das camadas, de tras para frente: backdrop, liquido, arte,
+            cena 3D, HUD. O liquido precisa ficar atras da arte porque o copo
+            do tema tem o interior transparente — e a propria arte que o
+            recorta, e o gelo e as paredes ficam por cima dele. */}
+        {!semArte && tema.backdrop && (
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{ background: tema.backdrop }}
+          />
+        )}
+
+        {!semArte && <LiquidoNaArte tema={tema} nivel={nivelDeEnchimento(acertos)} />}
+
         {!semArte && (
           // Arte de tamanho fixo conhecido, ocupando o palco inteiro: nao se
           // beneficia do srcset do next/image.
@@ -189,6 +204,7 @@ export default function Totem() {
 
         <CenaTotem
           tilt={state.tilt}
+          angle={state.angle}
           running={connected && fase !== "venceu"}
           round={round}
           onProgress={onProgress}

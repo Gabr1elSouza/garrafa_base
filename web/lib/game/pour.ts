@@ -8,21 +8,46 @@
 
 /** Metade do percurso da garrafa de cima. */
 export const TRILHO_X = 2.2;
-/** Altura do bico de onde as gotas saem. */
+/**
+ * Altura do bico de onde as gotas saem, quando o tema não diz outra.
+ *
+ * O recipiente de cima pendura a partir daqui, então esta altura e o tamanho
+ * dele andam juntas: uma lata mais alta com o mesmo bico afunda a base dentro
+ * do recipiente de baixo.
+ */
 export const ALTURA_BOCAL = 4.0;
 /** Velocidade angular do vaivem, em radianos por segundo. */
 export const VELOCIDADE_TRILHO = 0.62;
 
-/** Centro, altura da boca e raio da garrafa alvo. */
-export const ALVO_X = 0;
-export const ALVO_Y = 1.62;
-export const ALVO_RAIO = 0.66;
-
 /**
- * Altura do chão. A base da jarra apoia em y=0, então a gota morre logo abaixo
- * da superfície — some no instante em que encosta, sem atravessar o piso.
+ * Onde as gotas caem, em unidades de cena.
+ *
+ * É um parâmetro e não uma constante porque cada tema tem o recipiente num
+ * lugar diferente: o `oleo` usa a jarra 3D desenhada pela cena, o `redbull` usa
+ * o copo que já vem pintado na arte de fundo. Um alvo global faria o líquido
+ * encher num lugar e a gota pontuar em outro.
+ *
+ * São só as medidas de que a física precisa. Como o líquido é desenhado é
+ * assunto do tema, não daqui.
  */
-export const CHAO_Y = -0.05;
+export type Alvo = {
+  /** Centro da boca. */
+  x: number;
+  /** Altura da boca: é ao cruzar esta linha que a gota conta ponto. */
+  y: number;
+  /** Raio de acerto, medido na boca. */
+  raio: number;
+  /**
+   * Superfície onde o recipiente apoia: o plano que recebe sombra fica aqui, e
+   * é aqui que a gota perdida morre. Como a gota tem raio, ela some quando o
+   * centro cruza esta linha — de olho, no instante em que encosta.
+   */
+  chao: number;
+};
+
+/** A jarra procedural que a cena desenha. Valores de sempre. */
+export const ALVO_JARRA: Alvo = { x: 0, y: 1.62, raio: 0.66, chao: 0 };
+
 export const GRAVIDADE = 9.8;
 
 /** Inclinação onde o jato começa e onde atinge vazão máxima. */
@@ -82,29 +107,30 @@ export function gotasNoIntervalo(tilt: number, dt: number): number {
 export function passoGota(
   gota: Gota,
   dt: number,
+  alvo: Alvo = ALVO_JARRA,
 ): { gota: Gota; resultado: ResultadoGota } {
   const vy = gota.vy - GRAVIDADE * dt;
   const x = gota.x + gota.vx * dt;
   const y = gota.y + vy * dt;
   const proxima: Gota = { x, y, vx: gota.vx, vy };
 
-  if (gota.y > ALVO_Y && y <= ALVO_Y) {
-    const fracao = (gota.y - ALVO_Y) / (gota.y - y);
+  if (gota.y > alvo.y && y <= alvo.y) {
+    const fracao = (gota.y - alvo.y) / (gota.y - y);
     const xNoCruzamento = gota.x + (x - gota.x) * fracao;
-    if (Math.abs(xNoCruzamento - ALVO_X) <= ALVO_RAIO) {
+    if (Math.abs(xNoCruzamento - alvo.x) <= alvo.raio) {
       return { gota: proxima, resultado: "acertou" };
     }
   }
 
-  if (y < CHAO_Y) return { gota: proxima, resultado: "perdeu" };
+  if (y < alvo.chao) return { gota: proxima, resultado: "perdeu" };
   return { gota: proxima, resultado: "voando" };
 }
 
 /** Gota recém-saída do bico, herdando o movimento lateral da garrafa. */
-export function nascerGota(t: number): Gota {
+export function nascerGota(t: number, bocal: number = ALTURA_BOCAL): Gota {
   return {
     x: posicaoOscilador(t),
-    y: ALTURA_BOCAL,
+    y: bocal,
     vx: velocidadeOscilador(t) * INERCIA_JATO,
     vy: -0.5,
   };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolverTema, sortearLata, TEMAS, TEMA_PADRAO } from "./index";
+import { resolverTema, TEMAS, TEMA_PADRAO } from "./index";
 
 describe("resolverTema", () => {
   it("acha o tema pelo nome", () => {
@@ -23,36 +23,61 @@ describe("resolverTema", () => {
   });
 });
 
-describe("sortearLata", () => {
-  const doze = {
-    tipo: "sprite" as const,
-    imagens: Array.from({ length: 12 }, (_, i) => `lata-${i}.png`),
-    largura: 1,
-    altura: 2,
-  };
-
-  it("devolve uma das imagens listadas", () => {
-    expect(sortearLata(doze, () => 0)).toBe("lata-0.png");
-    expect(sortearLata(doze, () => 0.5)).toBe("lata-6.png");
+describe("alvo e deposito dos temas", () => {
+  it("poe a boca acima do chao", () => {
+    for (const tema of Object.values(TEMAS)) {
+      expect(tema.alvo.y).toBeGreaterThan(tema.alvo.chao);
+    }
   });
 
-  it("nao estoura quando o sorteio devolve 1", () => {
-    // Math.random() nunca devolve 1, mas um sorteio injetado pode.
-    expect(sortearLata(doze, () => 1)).toBe("lata-11.png");
+  it("mantem o liquido da jarra dentro dela", () => {
+    for (const tema of Object.values(TEMAS)) {
+      if (tema.deposito.onde !== "cena") continue;
+      const { fundo, altura, raio } = tema.deposito;
+      expect(fundo).toBeGreaterThanOrEqual(tema.alvo.chao);
+      // Liquido acima da boca transborda e denuncia o palpite.
+      expect(fundo + altura).toBeLessThanOrEqual(tema.alvo.y);
+      // Mais largo que o corpo e ele aparece atravessando a parede.
+      expect(raio).toBeLessThanOrEqual(tema.alvo.raio + 0.16);
+    }
   });
 
-  it("funciona com uma imagem so", () => {
-    const uma = {
-      tipo: "sprite" as const,
-      imagens: ["x.png"],
-      largura: 1,
-      altura: 2,
-    };
-    expect(sortearLata(uma, () => 0.99)).toBe("x.png");
+  it("mantem a faixa do liquido na arte dentro do palco e de cabeca para cima", () => {
+    for (const tema of Object.values(TEMAS)) {
+      if (tema.deposito.onde !== "arte") continue;
+      const { base, topo } = tema.deposito;
+      // `base` e o fundo do copo, entao esta mais abaixo na tela que `topo`.
+      // Invertidos, a altura fica negativa e o liquido some sem erro nenhum.
+      expect(base).toBeGreaterThan(topo);
+      expect(topo).toBeGreaterThanOrEqual(0);
+      expect(base).toBeLessThanOrEqual(100);
+    }
   });
 
-  it("devolve null para recipiente que nao e sprite", () => {
-    expect(sortearLata({ tipo: "galao" })).toBeNull();
+  it("exige backdrop de quem tem recipiente na arte", () => {
+    // A arte com copo tem o interior transparente: sem camada opaca atras, o
+    // copo vazio mostra o preto do palco e vira um buraco.
+    for (const tema of Object.values(TEMAS)) {
+      if (tema.deposito.onde === "arte") expect(tema.backdrop).toBeTruthy();
+    }
+  });
+
+  it("pendura o recipiente de cima acima da boca do de baixo", () => {
+    // O recipiente pendura a partir do bico, entao `bocal` e `altura` andam
+    // juntas. Aumentar a lata sem subir o bico afunda a base dela dentro do
+    // copo — e isso so aparece na tela, nunca num erro.
+    for (const tema of Object.values(TEMAS)) {
+      if (tema.recipiente.tipo !== "modelo") continue;
+      const base = tema.bocal - tema.recipiente.altura;
+      expect(base).toBeGreaterThan(tema.alvo.y);
+    }
+  });
+
+  it("so tira a jarra da cena quando a arte tem recipiente proprio", () => {
+    // O `oleo` aponta para arte placeholder sem recipiente desenhado: sem a
+    // jarra procedural o oleo cairia no vazio.
+    expect(TEMAS.oleo.deposito.onde).toBe("cena");
+    expect(TEMAS.redbull.deposito.onde).toBe("arte");
   });
 });
 

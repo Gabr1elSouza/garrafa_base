@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aberturaDoJato,
   ALTURA_BOCAL,
-  ALVO_RAIO,
-  ALVO_Y,
-  CHAO_Y,
+  ALVO_JARRA,
   formatarTempo,
   GOTAS_PARA_ENCHER,
   gotasNoIntervalo,
@@ -21,6 +19,7 @@ import {
   type Gota,
   type ResultadoGota,
 } from "./pour";
+import { resolverTema } from "../temas";
 
 describe("oscilador da garrafa de cima", () => {
   it("comeca no centro", () => {
@@ -85,6 +84,7 @@ describe("aberturaDoJato", () => {
 
 describe("passoGota", () => {
   const parada = (x: number, y: number): Gota => ({ x, y, vx: 0, vy: 0 });
+  const { y: ALVO_Y, raio: ALVO_RAIO, chao: CHAO_Y } = ALVO_JARRA;
 
   it("acelera para baixo", () => {
     const { gota } = passoGota(parada(0, 3), 0.1);
@@ -119,6 +119,27 @@ describe("passoGota", () => {
   it("perde a gota que passa do chao", () => {
     const { resultado } = passoGota({ x: 5, y: CHAO_Y + 0.01, vx: 0, vy: -1 }, 0.1);
     expect(resultado).toBe("perdeu");
+  });
+
+  it("julga contra o alvo recebido, nao contra a jarra", () => {
+    // O copo do tema redbull e mais largo e mais alto que a jarra. Uma gota
+    // nessa faixa e acerto la e erro aqui: se este teste passar a concordar
+    // com a jarra, o alvo voltou a ser global sem ninguem perceber.
+    const copo = resolverTema("redbull").alvo;
+    const foraDaJarra = parada(ALVO_RAIO + 0.2, copo.y + 0.05);
+
+    expect(passoGota(foraDaJarra, 0.1, copo).resultado).toBe("acertou");
+    expect(passoGota(parada(ALVO_RAIO + 0.2, ALVO_Y + 0.05), 0.1).resultado).not.toBe(
+      "acertou",
+    );
+  });
+
+  it("deixa a gota cair mais fundo quando o chao do alvo e mais baixo", () => {
+    const copo = resolverTema("redbull").alvo;
+    const abaixoDaJarra = { x: 5, y: CHAO_Y - 0.5, vx: 0, vy: -1 };
+
+    expect(passoGota(abaixoDaJarra, 0.01, copo).resultado).toBe("voando");
+    expect(passoGota(abaixoDaJarra, 0.01).resultado).toBe("perdeu");
   });
 
   it("mantem a gota voando enquanto esta no ar", () => {
