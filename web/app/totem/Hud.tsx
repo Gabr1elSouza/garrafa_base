@@ -58,7 +58,7 @@ export function Hud({ tema, acertos, nivel, tempo, venceu }: Props) {
         }}
       >
         <div className="mb-3 flex items-baseline justify-between text-3xl font-bold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
-          <span>JARRA</span>
+          <span>{tema.hud.rotulo}</span>
           <span className="tabular-nums">{Math.round(nivel * 100)}%</span>
         </div>
         <div className="h-10 overflow-hidden rounded-full bg-black/50 ring-4 ring-white/40">
@@ -71,7 +71,9 @@ export function Hud({ tema, acertos, nivel, tempo, venceu }: Props) {
 
       {venceu && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center">
-          <p className="text-8xl font-black text-amber-300">JARRA CHEIA!</p>
+          <p className="text-8xl font-black text-amber-300">
+            {tema.hud.vitoria}
+          </p>
           <p className="mt-8 font-mono text-9xl font-black tabular-nums text-white">
             {formatarTempo(tempo)}
           </p>

@@ -106,15 +106,27 @@ export function Operador({
         ) : (
           <>
             {mock && (
-              <button
-                type="button"
-                onPointerDown={() => mock.setPouring(true)}
-                onPointerUp={() => mock.setPouring(false)}
-                onPointerLeave={() => mock.setPouring(false)}
-                className="select-none rounded-3xl bg-amber-500 px-12 py-10 text-5xl font-black text-black"
-              >
-                Segure para derramar
-              </button>
+              <>
+                <button
+                  type="button"
+                  onPointerDown={() => mock.setPouring(true)}
+                  onPointerUp={() => mock.setPouring(false)}
+                  onPointerLeave={() => mock.setPouring(false)}
+                  className="select-none rounded-3xl bg-amber-500 px-12 py-10 text-5xl font-black text-black"
+                >
+                  Segure para derramar
+                </button>
+
+                {/* O giro so existe no sensor real; sem isto nao ha como ver a
+                    lata rodar, nem demonstrar o jogo se o BLE falhar. */}
+                <button
+                  type="button"
+                  onClick={() => mock.spin()}
+                  className="rounded-3xl border-4 border-white/30 px-12 py-8 text-4xl font-bold"
+                >
+                  Girar lata
+                </button>
+              </>
             )}
 
             {source?.kind === "ble" && (
