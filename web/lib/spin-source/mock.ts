@@ -160,7 +160,11 @@ export class MockSpinSource implements SpinSource {
       rate: Math.round(this.rate),
       seq: this.seq,
       saturated: false,
-      tilt: Math.round(this.tilt),
+      // Nao ha giroscopio para medir: o simulador nunca calibra.
+      calibrating: false,
+      // Um decimal, igual ao que o firmware manda pelo radio: o simulador nao
+      // pode ser mais grosso que a garrafa de verdade.
+      tilt: Math.round(this.tilt * 10) / 10,
     };
     this.listeners.forEach((fn) => fn(state));
   }

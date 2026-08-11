@@ -1,7 +1,7 @@
 import type { SpinState, SpinStatus } from "./types";
 
 /** Tamanho do pacote de estado emitido pelo firmware. */
-export const PACKET_SIZE = 8;
+export const PACKET_SIZE = 9;
 
 const STATUS_BY_CODE: Record<number, SpinStatus> = {
   0: "idle",
@@ -10,14 +10,14 @@ const STATUS_BY_CODE: Record<number, SpinStatus> = {
 };
 
 /**
- * Decodifica os 8 bytes little-endian da characteristic ESTADO.
+ * Decodifica os 9 bytes little-endian da characteristic ESTADO.
  *
  *   [0]   uint8  status
  *   [1-2] uint16 angulo em centesimos de grau
  *   [3-4] int16  taxa em graus/s
  *   [5]   uint8  seq
- *   [6]   uint8  flags, bit0 = saturou
- *   [7]   uint8  inclinacao em graus a partir da vertical, 0..180
+ *   [6]   uint8  flags, bit0 = saturou, bit1 = calibrando
+ *   [7-8] uint16 inclinacao em decimos de grau a partir da vertical, 0..1800
  */
 export function decodeState(view: DataView): SpinState {
   if (view.byteLength < PACKET_SIZE) {
@@ -32,7 +32,8 @@ export function decodeState(view: DataView): SpinState {
     rate: view.getInt16(3, true),
     seq: view.getUint8(5),
     saturated: (view.getUint8(6) & 0x01) !== 0,
-    tilt: view.getUint8(7),
+    calibrating: (view.getUint8(6) & 0x02) !== 0,
+    tilt: view.getUint16(7, true) / 10,
   };
 }
 

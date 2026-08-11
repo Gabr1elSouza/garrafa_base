@@ -6,13 +6,15 @@
  * Anuncia como "Garrafa".
  *
  *   Service  7a9c0001-4b1e-4b9a-9c3f-2d5e6f701122
- *   ESTADO   7a9c0002-...  notify, 8 bytes little-endian
+ *   ESTADO   7a9c0002-...  notify, 9 bytes little-endian
  *              [0]   uint8  status      0=parada 1=girando 2=acabou de parar
  *              [1-2] uint16 angulo      centesimos de grau, 0..35999 (yaw)
  *              [3-4] int16  taxa        graus/s no eixo Z
  *              [5]   uint8  seq         +1 a cada parada de giro
  *              [6]   uint8  flags       bit0 = giroscopio saturou
- *              [7]   uint8  inclinacao  graus a partir da vertical, 0..180
+ *                                        bit1 = calibrando, nao mexa
+ *              [7-8] uint16 inclinacao  DECIMOS de grau a partir da vertical,
+ *                                        0..1800
  *   COMANDO  7a9c0003-...  write, 1 byte
  *              0x01 zerar angulo       0x02 recalibrar giroscopio
  *              0x03 armar rodada       0x04 marcar pose atual como zero grau
@@ -74,11 +76,24 @@ const float         LIMIAR_PARADA = 10.0f;
 const unsigned long TEMPO_PARADA  = 500;
 const int16_t       RAW_SATURACAO = 32000;
 
-const unsigned long PERIODO_ATIVO = 50;    // ms -> 20 Hz
-const unsigned long PERIODO_OCIOSO = 250;  // ms ->  4 Hz
+/*
+ * Ritmo das notificacoes.
+ *
+ * 20 ms e o mesmo do firmware do aviao, e e o piso util: o Chrome negocia
+ * intervalo de conexao entre 15 e 30 ms, entao pedir mais rapido que isso so
+ * enfileira pacote que o radio nao tem quando entregar.
+ *
+ * O modo ocioso existe para a garrafa esquecida em cima da mesa nao gastar
+ * bateria falando a 50 Hz. Era 250 ms, e isso custava caro na hora errada: o
+ * inicio de um despejo podia demorar um quarto de segundo para chegar na tela.
+ * A 100 ms com limiares baixos, qualquer movimento de mao ja cai no ritmo
+ * rapido antes de a inclinacao virar jato.
+ */
+const unsigned long PERIODO_ATIVO = 20;    // ms -> 50 Hz
+const unsigned long PERIODO_OCIOSO = 100;  // ms -> 10 Hz
 /** Acima dessa inclinacao ou taxa, o jogo precisa de amostras rapidas. */
-const float LIMIAR_ATIVIDADE_TILT = 8.0f;
-const float LIMIAR_ATIVIDADE_TAXA = 40.0f;
+const float LIMIAR_ATIVIDADE_TILT = 2.0f;
+const float LIMIAR_ATIVIDADE_TAXA = 8.0f;
 
 // ---------------------------------------------------------------- estado
 float yaw   = 0.0f;
@@ -110,6 +125,16 @@ unsigned long tNotify = 0;
 
 bool    girando = false;
 bool    saturou = false;
+/*
+ * Verdadeiro enquanto `calibrar()` mede.
+ *
+ * A medida trava o `loop` por uns 3 s, entao ninguem consegue avisar do lado de
+ * dentro que ela acabou. O truque, copiado do firmware do aviao, e notificar
+ * uma vez ANTES de travar: a tela ve o bit subir, mostra "nao mexa", e sabe que
+ * terminou quando ele desce no primeiro pacote depois da medida. Assim a UI nao
+ * precisa cronometrar a duracao no relogio dela, que era chute.
+ */
+bool    calibrando = false;
 uint8_t seq     = 0;
 
 volatile uint8_t cmdPendente = 0;
@@ -264,6 +289,8 @@ void calibrarNivel() {
 }
 
 void calibrar() {
+  calibrando = true;
+  notificar(0, 0);                 // avisa a UI antes de travar o loop
   if (Serial) Serial.println(">> Calibrando. NAO MEXA...");
 
   const int N = 1500;
@@ -294,10 +321,11 @@ void calibrar() {
     Serial.println(" graus. Pronto.");
   }
 
-  yaw     = 0.0f;
-  girando = false;
-  saturou = false;
-  tPrev   = micros();
+  yaw        = 0.0f;
+  girando    = false;
+  saturou    = false;
+  calibrando = false;
+  tPrev      = micros();
 }
 
 
@@ -327,17 +355,21 @@ void notificar(uint8_t status, float taxaZ) {
 
   int16_t taxa = (int16_t)constrain(taxaZ, -32000.0f, 32000.0f);
 
-  uint8_t grausTilt = (uint8_t)constrain(tilt, 0.0f, 180.0f);
+  // Decimos de grau, nao graus inteiros: o jato abre entre 25 e 95 graus, e em
+  // passo de 1 grau a vazao inteira tinha so 70 degraus. Cada um aparecia como
+  // um solavanco no jorro.
+  uint16_t deciTilt = (uint16_t)(constrain(tilt, 0.0f, 180.0f) * 10.0f + 0.5f);
 
-  uint8_t buf[8];
+  uint8_t buf[9];
   buf[0] = status;
   buf[1] = (uint8_t)(ang & 0xFF);
   buf[2] = (uint8_t)(ang >> 8);
   buf[3] = (uint8_t)(taxa & 0xFF);
   buf[4] = (uint8_t)((taxa >> 8) & 0xFF);
   buf[5] = seq;
-  buf[6] = saturou ? 0x01 : 0x00;
-  buf[7] = grausTilt;
+  buf[6] = (saturou ? 0x01 : 0x00) | (calibrando ? 0x02 : 0x00);
+  buf[7] = (uint8_t)(deciTilt & 0xFF);
+  buf[8] = (uint8_t)(deciTilt >> 8);
 
   chrEstado->setValue(buf, sizeof(buf));
   if (clienteConectado) chrEstado->notify();
@@ -366,9 +398,6 @@ void setup() {
     while (true) delay(1000);
   }
 
-  carregarReferencia();
-  calibrar();
-
   BLEDevice::init("Garrafa");
   servidor = BLEDevice::createServer();
   servidor->setCallbacks(new CallbacksServidor());
@@ -388,9 +417,25 @@ void setup() {
   BLEAdvertising *adv = BLEDevice::getAdvertising();
   adv->addServiceUUID(SVC_UUID);
   adv->setScanResponse(true);
+  // Intervalo de conexao preferido, em unidades de 1,25 ms: 7,5 a 15 ms. E um
+  // pedido, nao uma ordem — quem decide e o celular ou o notebook —, mas sem
+  // ele o padrao negociado passa dos 40 ms e engarrafa as notificacoes de 20 ms.
+  adv->setMinPreferred(0x06);
+  adv->setMaxPreferred(0x0C);
   BLEDevice::startAdvertising();
 
   if (Serial) Serial.println(">> BLE no ar como \"Garrafa\".");
+
+  // Calibracao depois do anuncio, e nao antes: sao 1500 leituras a 2 ms, uns 3
+  // segundos em que a placa ficava muda. Quem ligava a garrafa e clicava em
+  // conectar na hora abria um seletor vazio e concluia que ela nao conectava.
+  //
+  // Nenhum pacote sai com bias sujo por causa da troca: quem notifica e o
+  // `loop`, que so comeca quando o `setup` termina. O cliente que conectar
+  // durante a medida apenas nao recebe nada nesses 3 segundos — e o mesmo que
+  // faz o firmware do aviao.
+  carregarReferencia();
+  calibrar();
 
   tPrev = micros();
 }

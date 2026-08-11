@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Calibrador } from "./Calibrador";
 import { CenaTotem } from "./CenaTotem";
+import { FimDePartida } from "./FimDePartida";
 import { Hud } from "./Hud";
 import { LiquidoNaArte } from "./LiquidoNaArte";
 import { Operador } from "./Operador";
@@ -26,8 +27,8 @@ import {
 
 type Fase = "pronto" | "jogando" | "venceu";
 
-/** Quanto a tela de vitoria fica no ar antes de a proxima partida comecar. */
-const TEMPO_DE_VITORIA = 8000;
+/** Quanto o placar fica sozinho na tela antes de aparecerem os botoes. */
+const TEMPO_DE_VITORIA = 3000;
 
 export default function Totem() {
   const escala = usePalco();
@@ -55,6 +56,8 @@ export default function Totem() {
   const [acertos, setAcertos] = useState(0);
   const [tempo, setTempo] = useState(0);
   const [round, setRound] = useState(0);
+  /** Os botoes de fim de partida, liberados depois que o placar foi lido. */
+  const [fimAberto, setFimAberto] = useState(false);
   const inicio = useRef(0);
   const faseRef = useRef<Fase>("pronto");
 
@@ -91,14 +94,31 @@ export default function Totem() {
     setAcertos(0);
     setTempo(0);
     setFase("pronto");
+    setFimAberto(false);
   }, []);
 
-  // Num totem publico ninguem aperta "recomecar": a fila anda sozinha.
+  // O placar fica sozinho por alguns segundos e so entao a tela oferece os
+  // botoes. Antes daqui a partida se reiniciava sozinha; agora quem decide e
+  // quem jogou, porque calibrar tambem mora nesta tela e um reinicio automatico
+  // fecharia o menu na mao da pessoa.
   useEffect(() => {
     if (fase !== "venceu") return;
-    const id = setTimeout(reiniciar, TEMPO_DE_VITORIA);
+    const id = setTimeout(() => setFimAberto(true), TEMPO_DE_VITORIA);
     return () => clearTimeout(id);
-  }, [fase, reiniciar]);
+  }, [fase]);
+
+  /**
+   * Pede a medida do desvio do giroscopio. Quem espera o fim e o `FimDePartida`,
+   * olhando o bit que o firmware levanta enquanto mede.
+   */
+  const calibrar = useCallback(async () => {
+    try {
+      await source?.send("calibrate");
+    } catch {
+      // Garrafa sumiu na hora do comando. O aviso de desconexao ja vem pelo
+      // `subscribeConnection`; aqui so nao pode derrubar a tela.
+    }
+  }, [source]);
 
   // As viradas de fase sao reacao ao que a cena reporta, nao sincronizacao de
   // estado. O ref espelha a fase para este callback nao precisar ser recriado.
@@ -238,6 +258,16 @@ export default function Totem() {
           aoZerar={() => source?.send("level")}
           aoFechar={() => setPainelAberto(false)}
         />
+
+        {fase === "venceu" && fimAberto && (
+          <FimDePartida
+            aoJogarNovamente={reiniciar}
+            aoCalibrar={calibrar}
+            aoDesconectar={desconectar}
+            temSensor={source?.kind === "ble"}
+            calibrando={state.calibrating}
+          />
+        )}
 
         {calibrando && <Calibrador tema={tema} />}
       </div>
