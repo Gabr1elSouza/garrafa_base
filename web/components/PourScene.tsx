@@ -49,6 +49,19 @@ const TILT_VISUAL_MAXIMO = 110;
  */
 const SUAVIZACAO_GIRO = 14;
 
+/**
+ * Constante de suavizacao da inclinacao, em 1/s.
+ *
+ * A garrafa fala a 50 Hz e a tela desenha a 60: entre dois pacotes ha quadro
+ * repetindo o mesmo angulo. Antes so a rotacao da lata era amortecida, e o jato
+ * lia o valor cru — a lata descia macia enquanto o jorro pulsava em degraus.
+ *
+ * Agora o angulo e alisado uma vez e alimenta os dois, entao o jato abre no
+ * mesmo ritmo em que a lata deita. 18 da uma constante de tempo de 55 ms:
+ * apaga o degrau sem a lata arrastar atras da mao.
+ */
+const SUAVIZACAO_TILT = 18;
+
 /** Alvo: jarra de boca larga, para que o raio de acerto seja crivel. */
 function useGeometriaAlvo(alvo: Alvo) {
   return useMemo(() => {
@@ -142,6 +155,7 @@ export function Cena({
   const liquido = useRef<THREE.Mesh>(null);
 
   const gotas = useRef<Gota[]>([]);
+  const tiltSuave = useRef(0);
   const sobra = useRef(0);
   const tempo = useRef(0);
   const acertos = useRef(0);
@@ -178,16 +192,21 @@ export function Cena({
     if (running) tempo.current += dt;
     const t = tempo.current;
 
+    // Um unico angulo alisado para a cena inteira: o desenho e a fisica tem que
+    // concordar sobre o quanto a garrafa esta deitada neste quadro.
+    tiltSuave.current = THREE.MathUtils.damp(
+      tiltSuave.current,
+      tilt,
+      SUAVIZACAO_TILT,
+      dt,
+    );
+    const tiltDoQuadro = tiltSuave.current;
+
     // --- garrafa de cima ---
     if (garrafa.current) {
       garrafa.current.position.x = posicaoOscilador(t);
-      const grausVisuais = Math.min(tilt, TILT_VISUAL_MAXIMO);
-      garrafa.current.rotation.z = THREE.MathUtils.damp(
-        garrafa.current.rotation.z,
-        THREE.MathUtils.degToRad(grausVisuais),
-        18,
-        dt,
-      );
+      const grausVisuais = Math.min(tiltDoQuadro, TILT_VISUAL_MAXIMO);
+      garrafa.current.rotation.z = THREE.MathUtils.degToRad(grausVisuais);
     }
 
     // --- giro no proprio eixo ---
@@ -206,7 +225,7 @@ export function Cena({
 
     // --- nascimento de gotas ---
     if (running) {
-      sobra.current += gotasNoIntervalo(tilt, dt);
+      sobra.current += gotasNoIntervalo(tiltDoQuadro, dt);
       while (sobra.current >= 1 && gotas.current.length < MAX_GOTAS) {
         sobra.current -= 1;
         gotas.current.push(nascerGota(t, bocal));

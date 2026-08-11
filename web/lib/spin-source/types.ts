@@ -12,6 +12,11 @@ export type SpinState = {
   /** O giroscopio bateu no fundo de escala: o angulo pode estar impreciso. */
   saturated: boolean;
   /**
+   * O firmware esta medindo o bias e nao vai notificar por alguns segundos.
+   * Sobe no ultimo pacote antes da medida e desce no primeiro depois dela.
+   */
+  calibrating: boolean;
+  /**
    * Inclinacao a partir da vertical, 0..180 graus. Sai do filtro complementar
    * no firmware. E o que abre o jato no jogo de derramar.
    */
@@ -38,5 +43,6 @@ export const INITIAL_STATE: SpinState = {
   rate: 0,
   seq: 0,
   saturated: false,
+  calibrating: false,
   tilt: 0,
 };

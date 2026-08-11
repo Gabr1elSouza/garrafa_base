@@ -26,6 +26,10 @@ import {
 
 type Fase = "pronto" | "jogando" | "venceu";
 
+/** Item da lista de opções. Alinhado à esquerda, sem borda: é lista, não botão. */
+const ITEM_OPCAO =
+  "rounded-md px-3 py-2 text-left text-sm text-zinc-300 transition hover:bg-zinc-900";
+
 export default function Home() {
   const bluetoothReady = useSyncExternalStore(
     bluetoothAvailability.subscribe,
@@ -250,29 +254,64 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={reiniciar}
-                  className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
+                  className="rounded-lg bg-zinc-100 px-4 py-2.5 font-semibold text-black transition hover:bg-white"
                 >
-                  Recomeçar
+                  Jogar de novo
                 </button>
 
-                {source?.kind === "ble" && (
-                  <button
-                    type="button"
-                    onClick={() => source.send("level")}
-                    title="Segure a garrafa parada na posição de descanso e clique. Essa pose vira 0°."
-                    className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition hover:border-zinc-500"
-                  >
-                    Marcar posição atual como 0°
-                  </button>
-                )}
+                {/* Tudo que não é jogar mora aqui dentro. São ações de sensor,
+                    usadas uma vez no começo e raramente depois: soltas na
+                    coluna elas competiam com o botão que a pessoa realmente
+                    quer. `details` abre e fecha sozinho, sem estado. */}
+                <details className="group rounded-lg border border-zinc-800">
+                  <summary className="cursor-pointer list-none px-4 py-2 text-sm text-zinc-400 transition hover:text-zinc-200">
+                    Opções
+                    <span className="float-right transition-transform group-open:rotate-180">
+                      ⌄
+                    </span>
+                  </summary>
 
-                <button
-                  type="button"
-                  onClick={stop}
-                  className="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-300"
-                >
-                  Desconectar
-                </button>
+                  <div className="flex flex-col gap-2 border-t border-zinc-800 p-2">
+                    {source?.kind === "ble" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => source.send("level")}
+                          title="Segure a garrafa parada na posição de descanso e clique. Essa pose vira 0°."
+                          className={ITEM_OPCAO}
+                        >
+                          Marcar posição atual como 0°
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => source.send("calibrate")}
+                          title="Deixe a garrafa parada numa superfície firme. Leva cerca de 3 segundos."
+                          className={ITEM_OPCAO}
+                        >
+                          Recalibrar giroscópio
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => source.send("zero")}
+                          title="Zera só o giro em torno do próprio eixo. Não mexe na inclinação."
+                          className={ITEM_OPCAO}
+                        >
+                          Zerar giro
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={stop}
+                      className="rounded-md px-3 py-2 text-left text-sm text-zinc-500 transition hover:bg-zinc-900 hover:text-zinc-300"
+                    >
+                      Desconectar
+                    </button>
+                  </div>
+                </details>
               </>
             )}
           </div>
@@ -295,6 +334,7 @@ export default function Home() {
         <div className="flex flex-1 items-center justify-center">
           <PourScene
             tilt={state.tilt}
+            angle={state.angle}
             running={connected && fase !== "venceu"}
             round={round}
             onProgress={onProgress}
